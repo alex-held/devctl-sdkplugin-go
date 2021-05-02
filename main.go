@@ -3,23 +3,23 @@ package golang
 import (
 	"context"
 	"fmt"
+	"os"
 
-	"github.com/alex-held/devctl/pkg/devctlpath"
+	"github.com/alex-held/devctl-plugins/pkg/devctlpath"
+	"github.com/alex-held/devctl-plugins/pkg/plugins/sdk"
 	"github.com/gobuffalo/plugins"
-	_ "github.com/gobuffalo/plugins"
 	"github.com/mandelsoft/vfs/pkg/osfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
-
-	"github.com/alex-held/devctl-plugins/pkg/plugins/sdk"
 )
 
 const (
-	GoCmdName         = "sdk/go"
-	GoListCmdName     = "sdk/go/list"
-	GoDownloadCmdName = "sdk/go/download"
-	GoInstallCmdName  = "sdk/go/install"
-	GoLinkCmdName     = "sdk/go/link"
-	GoUseCmdName      = "sdk/go/use"
+	GoSDKPluginVersion = "v0.0.1"
+	GoCmdName          = "sdk/go"
+	GoListCmdName      = "sdk/go/list"
+	GoDownloadCmdName  = "sdk/go/download"
+	GoInstallCmdName   = "sdk/go/install"
+	GoLinkCmdName      = "sdk/go/link"
+	GoUseCmdName       = "sdk/go/use"
 )
 
 func Plugins() []plugins.Plugin {
@@ -36,7 +36,17 @@ func Plugins() []plugins.Plugin {
 	}
 }
 
-func (cmd *GoSDKCmd) Main(ctx context.Context, root string, args []string) error {
+func main() {
+	cmd := &GoSDKCmd{}
+	args := os.Args
+	err := cmd.Main(context.Background(), "", args)
+	if err != nil {
+		fmt.Printf("Error executing go sdk plugin. Args=%v\n%v\n", args, err)
+	}
+}
+
+func (cmd *GoSDKCmd) Main(ctx context.Context, _ string, args []string) error {
+
 	cmd.Fs = vfs.New(osfs.New())
 	cmd.Pather = devctlpath.NewPather()
 
@@ -47,7 +57,7 @@ func (cmd *GoSDKCmd) Main(ctx context.Context, root string, args []string) error
 
 	switch cmd := subcommand.(type) {
 	case *GoUseCmd:
-		return cmd.ExecuteCommand(ctx, "", []string{version})
+		return cmd.Use(ctx, version)
 	case *GoDownloadCmd:
 		return cmd.Download(ctx, version)
 	case sdk.Installer:
