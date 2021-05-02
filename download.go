@@ -79,6 +79,7 @@ func (cmd *GoDownloadCmd) ExecuteCommand(ctx context.Context, _ string, args []s
 
 func (cmd *GoDownloadCmd) Init() {
 	cmd.Fs = vfs.New(osfs.New())
+
 	// TODO: just checking if I can skip init, using better types
 	//	cmd.Runtime = system.OSRuntimeInfoGetter{}
 	cmd.Pather = devctlpath.DefaultPather()

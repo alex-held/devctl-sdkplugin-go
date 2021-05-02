@@ -17,7 +17,7 @@ import (
 
 type GoLinkerCmd struct {
 	plugins plugins.Plugins
-	path    devctlpath.Pather
+	Pather  devctlpath.Pather
 	fs      vfs.VFS
 }
 
@@ -58,13 +58,13 @@ func (cmd *GoLinkerCmd) AsTasker(version string) taskrunner.Tasker {
 	return &taskrunner.SimpleTask{
 		Description: fmt.Sprintf("Linking go sdk %s to @current", version),
 		Action: func(ctx context.Context) error {
-			sdkPath := cmd.path.SDK("go", version)
-			currentPath := cmd.path.SDK("go", "current")
-			err := cmd.RemoveBrokenSymlinks(cmd.path.SDK("go"))
+			sdkPath := cmd.Pather.SDK("go", version)
+			currentPath := cmd.Pather.SDK("go", "current")
+			err := cmd.RemoveBrokenSymlinks(cmd.Pather.SDK("go"))
 			if err != nil {
 				return err
 			}
-			//		err = cmd.fs.Remove(currentPath)
+			//		err = cmd.Fs.Remove(currentPath)
 			_ = err // ingore the error.. rm -f
 			return cmd.fs.Symlink(sdkPath, currentPath)
 		},
@@ -94,8 +94,8 @@ func (cmd *GoLinkerCmd) CmdName() string {
 
 func (cmd *GoLinkerCmd) ExecuteCommand(ctx context.Context, root string, args []string) (err error) {
 	version := args[1]
-	sdkPath := cmd.path.SDK("go", version)
-	current := cmd.path.SDK("go", "current")
+	sdkPath := cmd.Pather.SDK("go", version)
+	current := cmd.Pather.SDK("go", "current")
 
 	removeCurrentIfExitstsTask := taskrunner.NewConditionalTask(
 		"Clean up existing @current",
@@ -133,4 +133,21 @@ func (cmd *GoLinkerCmd) ExecuteCommand(ctx context.Context, root string, args []
 	}
 
 	return nil
+}
+
+func (cmd *GoLinkerCmd) Link(ctx context.Context, version string) (err error) {
+	sdkPath := cmd.Pather.SDK("go", version)
+	current := cmd.Pather.SDK("go", "current")
+
+	err = cmd.fs.RemoveAll(current)
+	if err != nil {
+		return errors.Wrapf(err, "failed to remove current symlink")
+	}
+
+	if e, err := cmd.fs.DirExists(sdkPath); !e || err != nil {
+		return err
+	}
+
+	err = cmd.fs.Symlink(sdkPath, current)
+	return err
 }

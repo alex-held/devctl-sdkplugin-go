@@ -4,7 +4,7 @@ import (
 	"path"
 	"strings"
 
-	plugins2 "github.com/alex-held/devctl-plugins/pkg/plugins"
+	devctlPlug "github.com/alex-held/devctl/pkg/plugins"
 	"github.com/gobuffalo/plugins"
 	"github.com/gobuffalo/plugins/plugcmd"
 )
@@ -21,7 +21,7 @@ func FindSubcommandFromArgs(args []string, plugs []plugins.Plugin) plugins.Plugi
 
 func FindSubcommand(name string, plugs []plugins.Plugin) plugins.Plugin {
 	for _, p := range plugs {
-		c, ok := p.(plugins2.SDKPlugin)
+		c, ok := p.(devctlPlug.SDKPlugin)
 		if !ok {
 			continue
 		}
