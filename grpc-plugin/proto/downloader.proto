@@ -1,0 +1,15 @@
+syntax = "proto3";
+package proto;
+option go_package = "/";
+
+service Downloader {
+  rpc Download (DownloadRequest) returns (DownloadResponse);
+}
+
+message DownloadResponse {
+  bool success = 1;
+}
+
+message DownloadRequest {
+  string version = 1;
+}
