@@ -31,6 +31,29 @@ type GoDownloadCmd struct {
 	Runtime *sysutils.DefaultRuntimeInfoGetter
 }
 
+// Download downloads a tarball of wanted version
+func (cmd *GoDownloadCmd) Download(ctx context.Context, version string) error {
+	artifactName := FormatGoArchiveArtifactName(cmd.Runtime.Get(), version)
+	dlDirectory := cmd.Pather.Download("go", version)
+	archivePath := path.Join(dlDirectory, artifactName)
+	dlUri := cmd.Runtime.Get().Format("%s/dl/%s", cmd.BaseUri, artifactName)
+
+	if err := cmd.Fs.MkdirAll(dlDirectory, os.ModePerm); err != nil {
+		return errors.Wrapf(err, "failed creating go sdk download Pather; version=%s", version)
+	}
+
+	artifactFile, err := cmd.Fs.Create(archivePath)
+	if err != nil {
+		return errors.Wrapf(err, "failed creating / opening file handle for the download")
+	}
+	dl := downloader2.NewDownloader(dlUri, "downloading the go sdk", artifactFile, os.Stdout)
+	err = dl.Download(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed downloading go sdk %v from the remote server %s", version, cmd.BaseUri)
+	}
+	return nil
+}
+
 func (cmd *GoDownloadCmd) AsTasker(version string) (task taskrunner.Tasker) {
 	artifactName := FormatGoArchiveArtifactName(cmd.Runtime.Get(), version)
 	dlDirectory := cmd.Pather.Download("go", version)

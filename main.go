@@ -41,7 +41,7 @@ func main() {
 	args := os.Args
 	err := cmd.Main(context.Background(), "", args)
 	if err != nil {
-		fmt.Printf("Error executing go sdk plugin. Args=%v\n%v\n", args, err)
+		fmt.Printf("Error executing go sdk plugSrc. Args=%v\n%v\n", args, err)
 	}
 }
 
@@ -61,17 +61,17 @@ func (cmd *GoSDKCmd) Main(ctx context.Context, _ string, args []string) error {
 	case *GoDownloadCmd:
 		return cmd.Download(ctx, version)
 	case sdk.Installer:
-		return cmd.Install(version)
+		return cmd.Install(ctx, version)
 	case sdk.Linker:
-		return cmd.Link(version)
+		return cmd.Link(ctx, version)
 	case sdk.Lister:
 		// TODO: multiplex console output, so that return values are not necessary
-		versions, err := cmd.ListInstalled(version)
+		versions, err := cmd.ListInstalled(ctx)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("%v\n", versions)
 		return err
 	}
-	return fmt.Errorf("plugin %s has a unsupported api", cmd.PluginName())
+	return fmt.Errorf("plugSrc %s has a unsupported api", cmd.PluginName())
 }

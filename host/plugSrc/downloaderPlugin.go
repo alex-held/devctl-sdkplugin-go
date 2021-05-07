@@ -1,4 +1,4 @@
-package plugin
+package main
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 
 	golang "github.com/alex-held/devctl-sdkplugin-go"
-	"github.com/alex-held/devctl-sdkplugin-go/shared"
+	shared2 "github.com/alex-held/devctl-sdkplugin-go/host/shared"
 )
 
 // GoDownloader is a real implementation of sdk.Downloader
@@ -49,13 +49,13 @@ func (g *GoDownloader) Download(ctx context.Context, version string) (err error)
 }
 
 // handshakeConfigs are used to just do a basic handshake between
-// a plugin and host. If the handshake fails, a user friendly error is shown.
-// This prevents users from executing bad plugins or executing a plugin
+// a plugSrc and host. If the handshake fails, a user friendly error is shown.
+// This prevents users from executing bad plugins or executing a plugSrc
 // directory. It is a UX feature, not a security feature.
 var handshakeConfig = plugin.HandshakeConfig{
 	ProtocolVersion:  1,
 	MagicCookieKey:   "BASIC_PLUGIN",
-	MagicCookieValue: "sdk.go.Download",
+	MagicCookieValue: "sdk.go.downloader",
 }
 
 func main() {
@@ -71,10 +71,10 @@ func main() {
 
 	// pluginMap is the map of plugins we can dispense.
 	var pluginMap = map[string]plugin.Plugin{
-		"sdk.go.Download": &shared.GoDownloaderPlugin{Impl: downloader},
+		"sdk.go.downloader": &shared2.GoDownloaderPlugin{Impl: downloader},
 	}
 
-	logger.Debug("message from plugin", "foo", "bar")
+	logger.Debug("message from GoDownloaderPlugin")
 
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: handshakeConfig,

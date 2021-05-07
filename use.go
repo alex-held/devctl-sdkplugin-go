@@ -34,7 +34,7 @@ func (cmd *GoUseCmd) Use(ctx context.Context, version string) error {
 		case *GoLinkerCmd:
 			linkerCmd = p
 		default:
-			return errors.Errorf("unsupported plugin %+v\n", p)
+			return errors.Errorf("unsupported plugSrc %+v\n", p)
 		}
 	}
 
@@ -117,8 +117,8 @@ func (cmd *GoUseCmd) ExecuteCommand(ctx context.Context, _ string, args []string
 		// 4. Is the go sdk version installed?
 		if exists, _ := cmd.Fs.DirExists(sdkPath); !exists {
 
-			// 4 -> Start different plugin do install
-			// todo: search plugin and start it
+			// 4 -> Start different plugSrc do install
+			// todo: search plugSrc and start it
 			// todo: ask for user input, if the sdk should be installed
 
 			if err = cmd.Fs.MkdirAll(sdkPath, os.ModePerm); err != nil {

@@ -24,7 +24,7 @@ import (
 
 func TestGoSDKPluginSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "go-plugin USE")
+	RunSpecs(t, "go-plugSrc USE")
 }
 
 const (
@@ -45,7 +45,7 @@ var ArchiveBytes []byte
 
 func (p *NamedNoOpPlugin) PluginName() string { return p.Name }
 
-var _ = Describe("go-plugin USE", func() {
+var _ = Describe("go-plugSrc USE", func() {
 	var (
 		vs              vfs.VFS
 		versionSdkDir   string

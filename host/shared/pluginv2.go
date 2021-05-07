@@ -15,10 +15,16 @@ type GOSDKPluginV2 struct {
 
 type DownloaderRPC struct{ client *rpc.Client }
 
+func (g *DownloaderRPC) PluginName() string {
+	return "sdk.go.downloader"
+}
+
+func (g *DownloaderRPC) CmdName() string { return "download" }
+
 func (g *DownloaderRPC) Download(ctx context.Context, version string) error {
 	var resp error
 	arg := &DownloadArg{ctx, version}
-	err := g.client.Call("sdk.go.Download", arg, &resp)
+	err := g.client.Call("sdk.go.downloader", arg, &resp)
 	if err != nil {
 		// You usually want your interfaces to return errors. If they don't,
 		// there isn't much other choice here.
@@ -40,26 +46,24 @@ type DownloadArg struct {
 }
 
 func (s *DownloaderRPCServer) Download(args interface{}, resp *string) error {
-	if arg, ok := args.(*DownloadArg); ok {
-		err := s.Impl.Download(arg.Context, arg.Version)
-		if err != nil {
-			*resp = err.Error()
-		}
-		return nil
+	dlArg := args.(*DownloadArg)
+	err := s.Impl.Download(dlArg.Context, dlArg.Version)
+	if err != nil {
+		*resp = err.Error()
 	}
 	return nil
 }
 
-// GoDownloaderPlugin  is the implementation of plugin.Plugin so we can serve/consume this
+// GoDownloaderPlugin  is the implementation of plugSrc.Plugin so we can serve/consume this
 //
-// This has two methods: Server must return an RPC server for this plugin
+// This has two methods: Server must return an RPC server for this plugSrc
 // type. We construct a DownloaderRPCServer for this.
 //
 // Client must return an implementation of our interface that communicates
 // over an RPC client. We return DownloaderRPC for this.
 //
 // Ignore MuxBroker. That is used to create more multiplexed streams on our
-// plugin connection and is a more advanced use case.
+// plugSrc connection and is a more advanced use case.
 type GoDownloaderPlugin struct {
 	// Impl Injection
 	Impl sdk.Downloader
