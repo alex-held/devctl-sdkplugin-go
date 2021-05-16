@@ -53,7 +53,7 @@ tasks:
   build:
     desc: builds the devctl-sdkplugin-go
     cmds:
-      - go build -o ./bin ./main.go
+      - go build -pkgdir ./... -modfile go.mod  -o ./bin/devctl-sdkplugin-go 
 
   build:install:
     desc: installs the devctl-sdkplugin-go
