@@ -2,12 +2,11 @@ package main
 
 import (
 	"context"
-	"flag"
+	"fmt"
 	"os"
 
 	devctlpath2 "github.com/alex-held/devctl-plugins/pkg/devctlpath"
 	"github.com/gobuffalo/plugins"
-	"github.com/gobuffalo/plugins/plugflag"
 	"github.com/gobuffalo/plugins/plugprint"
 	"github.com/hashicorp/go-hclog"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -16,8 +15,6 @@ import (
 
 	. "github.com/alex-held/devctl-sdkplugin-go/golang"
 )
-
-const Version = "v1.0.0"
 
 func Plugins() []plugins.Plugin {
 	var feeder plugins.Feeder = func() []plugins.Plugin {
@@ -45,39 +42,16 @@ func Plugins() []plugins.Plugin {
 	}
 }
 
-var help bool
-var level int
-
-func bindFlags(args []string) (flags *flag.FlagSet, slice []*flag.Flag, err error) {
-
-	flags = flag.NewFlagSet("sdk/go", flag.ContinueOnError)
-	flags.BoolVar(&help, "help", false, "help")
-	flags.IntVar(&level, "level", int(hclog.Warn), `level=(
-		0 <default> | allow default logging handling
-		1 <trace>   | Intended to be used for tracing
-		2 <debug>   | Debug information for programmer lowlevel analysis.
-		3 <info>    | Info information about steady state operations.
-		4 <warn>    | Warn information about rare but handled events.
-		5 <error>   |  Error information about unrecoverable events.
-		6 <off>     | Off disables all logging output.
-	)`)
-
-	if err = flags.Parse(args); err != nil {
-		return flags, nil, err
-	}
-	return flags, plugflag.SetToSlice(flags), nil
-}
-
 func main() {
 	cmd := Plugins()[0].(*GoSDKCmd)
 	args := os.Args
-	//	flags, _, err := bindFlags(args)
 
 	var help bool
+	var version bool
 	var level int32
-
 	flagSet := pflag.NewFlagSet("sdk/go", pflag.ContinueOnError)
 	flagSet.BoolVarP(&help, "help", "h", false, "(--help | -h)")
+	flagSet.BoolVarP(&version, "version", "v", false, "(--version | -v)")
 	flagSet.Int32VarP(&level, "level", "l", 0, `(--level | -l) (
 		0 <default> | allow default logging handling
 		1 <trace>   | Intended to be used for tracing
@@ -103,6 +77,16 @@ func main() {
 			cmd.Logger.Error("failed to print cli help. exiting...", "args", args, "err", err)
 			os.Exit(1)
 		}
+		os.Exit(0)
+	}
+
+	printVersionFlagValue, err := flagSet.GetBool("version")
+	if err != nil {
+		cmd.Logger.Error("failed to parse cli flag. exiting...", "failed flag", "version", "args", args, "err", err)
+		os.Exit(1)
+	}
+	if printVersionFlagValue {
+		_, _ = fmt.Println(Version)
 		os.Exit(0)
 	}
 
