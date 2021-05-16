@@ -20,22 +20,33 @@ type GoUseCmd struct {
 	Fs      vfs.VFS
 }
 
+func (cmd *GoUseCmd) SetFsFeeder(feeder FileSystemFeeder) {
+	cmd.Fs = feeder()
+}
+
+func (cmd *GoUseCmd) SetPather(feeder PatherFeeder) {
+	cmd.Pather = feeder()
+}
+
 func (cmd *GoUseCmd) Use(ctx context.Context, version string) error {
+
 	var downloadCmd *GoDownloadCmd
 	var installCmd *GoInstallCmd
 	var linkerCmd *GoLinkerCmd
 
 	for _, plugin := range cmd.Plugins {
-		switch p := plugin.(type) {
-		case *GoDownloadCmd:
+
+		if p, ok := plugin.(*GoDownloadCmd); ok {
 			downloadCmd = p
-		case *GoInstallCmd:
-			installCmd = p
-		case *GoLinkerCmd:
-			linkerCmd = p
-		default:
-			return errors.Errorf("unsupported plugin %+v\n", p)
 		}
+		if p, ok := plugin.(*GoInstallCmd); ok {
+			installCmd = p
+		}
+		if p, ok := plugin.(*GoLinkerCmd); ok {
+			linkerCmd = p
+		}
+
+		fmt.Printf("unsupported plugin '%s' with type %T\n", plugin.PluginName(), plugin)
 	}
 
 	err := downloadCmd.Download(ctx, version)
@@ -58,7 +69,9 @@ func (cmd *GoUseCmd) Use(ctx context.Context, version string) error {
 	return nil
 }
 
-func (cmd *GoUseCmd) WithPlugins(feeder plugins.Feeder) { cmd.Plugins = feeder() }
+func (cmd *GoUseCmd) WithPlugins(feeder plugins.Feeder) {
+	cmd.Plugins = feeder()
+}
 
 func (cmd *GoUseCmd) CreateTaskRunner(version string) (runner taskrunner.Runner) {
 	var tasks taskrunner.Tasks

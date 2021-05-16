@@ -9,20 +9,28 @@ import (
 	"path/filepath"
 	"strings"
 
+	devctlpath2 "github.com/alex-held/devctl/pkg/devctlpath"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/pkg/errors"
 
-	"github.com/alex-held/devctl-plugins/pkg/devctlpath"
 	"github.com/alex-held/devctl-plugins/pkg/sysutils"
 	"github.com/alex-held/devctl/pkg/ui/taskrunner"
 )
 
-
 type Renamer func(p string) string
+
 type GoInstallCmd struct {
-	Pather  devctlpath.Pather
+	Pather  devctlpath2.Pather
 	Runtime *sysutils.DefaultRuntimeInfoGetter
 	Fs      vfs.VFS
+}
+
+func (cmd *GoInstallCmd) SetPather(feeder PatherFeeder) {
+	cmd.Pather = feeder()
+}
+
+func (cmd *GoInstallCmd) SetFsFeeder(feeder FileSystemFeeder) {
+	cmd.Fs = feeder()
 }
 
 func (cmd *GoInstallCmd) AsTasker(version string) taskrunner.Tasker {
@@ -34,7 +42,8 @@ func (cmd *GoInstallCmd) AsTasker(version string) taskrunner.Tasker {
 	return &taskrunner.ConditionalTask{
 		Description: "installing go sdk %s into the go sdk directory",
 		Action: func(ctx context.Context) error {
-			archive, err := cmd.Fs.OpenFile(archivePath, os.O_WRONLY, os.ModePerm)
+			archive, err := cmd.Fs.OpenFile(archivePath, os.O_RDWR, os.ModePerm)
+
 			if err != nil {
 				return errors.Wrapf(err, "failed to open go sdk archive=%s\n", archivePath)
 			}
@@ -70,10 +79,10 @@ func (cmd *GoInstallCmd) ExecuteCommand(ctx context.Context, root string, args [
 	return task.Task(ctx)
 }
 
-//nolint:gocognit
 func UnTarGzip(file io.Reader, target string, renamer Renamer, v vfs.VFS) error {
 	gr, _ := gzip.NewReader(file)
 	tr := tar.NewReader(gr)
+
 
 	for {
 		header, err := tr.Next()

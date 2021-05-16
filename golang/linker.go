@@ -21,6 +21,14 @@ type GoLinkerCmd struct {
 	fs      vfs.VFS
 }
 
+func (cmd *GoLinkerCmd) SetPather(feeder PatherFeeder) {
+	cmd.Pather = feeder()
+}
+
+func (cmd *GoLinkerCmd) SetFsFeeder(feeder FileSystemFeeder) {
+	cmd.fs = feeder()
+}
+
 type Taskable interface {
 	AsTasker(version string) taskrunner.Tasker
 }

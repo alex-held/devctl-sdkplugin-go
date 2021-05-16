@@ -2,6 +2,7 @@ package golang
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -9,9 +10,8 @@ import (
 	downloader2 "github.com/alex-held/devctl/pkg/plugins/downloader"
 	"github.com/pkg/errors"
 
+	"github.com/alex-held/devctl-plugins/pkg/devctlpath"
 	"github.com/alex-held/devctl-plugins/pkg/sysutils"
-	"github.com/alex-held/devctl/cli/cmds/sdk"
-	"github.com/alex-held/devctl/pkg/devctlpath"
 	plugins2 "github.com/gobuffalo/plugins"
 	"github.com/gobuffalo/plugins/plugcmd"
 	"github.com/gobuffalo/plugins/plugprint"
@@ -25,12 +25,12 @@ var _ plugins2.Scoper = &GoSDKCmd{}
 var _ plugprint.Describer = &GoSDKCmd{}
 
 type GoSDKCmd struct {
-	Plugins   plugins2.Plugins
-	pluginsFn plugins2.Feeder
-	Pather    devctlpath.Pather
-
+	Plugins           plugins2.Plugins
+	Feeder            plugins2.Feeder
+	Pather            devctlpath.Pather
 	RuntimeInfoGetter *sysutils.DefaultRuntimeInfoGetter
 	Fs                vfs.VFS
+	scopedPlugins     plugins2.Plugins
 }
 
 // Download downloads a tarball of wanted version
@@ -42,6 +42,11 @@ func (cmd *GoDownloadCmd) Download(ctx context.Context, version string) error {
 
 	if err := cmd.Fs.MkdirAll(dlDirectory, os.ModePerm); err != nil {
 		return errors.Wrapf(err, "failed creating go sdk download Pather; version=%s", version)
+	}
+
+	if exists, _ := cmd.Fs.Exists(archivePath); exists {
+		fmt.Printf("go sdk tarball already exists for version '%s' at path '%s'.. skipping redownload\n", version, archivePath)
+		return nil
 	}
 
 	artifactFile, err := cmd.Fs.Create(archivePath)
@@ -57,6 +62,7 @@ func (cmd *GoDownloadCmd) Download(ctx context.Context, version string) error {
 }
 
 func (cmd *GoSDKCmd) WithPlugins(feeder plugins2.Feeder) {
+	cmd.Feeder = feeder
 	cmd.Plugins = feeder()
 }
 
@@ -65,7 +71,7 @@ func (cmd *GoInstallCmd) Install(version string) error {
 	archivePath := cmd.Pather.Download("go", version, archiveName)
 	installPath := cmd.Pather.SDK("go", version)
 
-	archive, err := cmd.Fs.OpenFile(archivePath, os.O_WRONLY, os.ModePerm)
+	archive, err := cmd.Fs.OpenFile(archivePath, os.O_RDWR, os.ModePerm)
 	if err != nil {
 		return errors.Wrapf(err, "failed to open go sdk archive=%s\n", archivePath)
 	}
@@ -80,7 +86,7 @@ func (cmd *GoInstallCmd) Install(version string) error {
 	return nil
 }
 
-func (cmd *GoListerCmd) ListInstalled(version string) (versions []string, err error) {
+func (cmd *GoListerCmd) ListInstalled(_ string) (versions []string, err error) {
 	dir := cmd.Pather.SDK("go")
 	fileInfos, err := cmd.Fs.ReadDir(dir)
 	if err != nil {
@@ -95,7 +101,7 @@ func (cmd *GoListerCmd) ListInstalled(version string) (versions []string, err er
 }
 
 func (cmd *GoSDKCmd) Link(version string) error {
-	panic("implement me")
+	panic("")
 }
 
 func (cmd *GoSDKCmd) ExecuteCommand(ctx context.Context, root string, args []string) error {
@@ -114,26 +120,98 @@ func (cmd *GoSDKCmd) Description() string {
 	return "manages the installations of the go sdk"
 }
 
-func (cmd *GoSDKCmd) SubCommands() []plugins2.Plugin {
-	return plugins2.Plugins{
-		&GoListerCmd{},
-		&GoDownloadCmd{},
-		&GoUseCmd{},
-		&GoInstallCmd{},
+func (cmd *GoSDKCmd) SubCommands() (subcommands []plugins2.Plugin) {
+	return cmd.ScopedPlugins()
+
+	for _, plugin := range cmd.Plugins[0].(*GoSDKCmd).Plugins {
+		subcommands = append(subcommands, plugin)
 	}
+	return subcommands
 }
 
 func (cmd *GoSDKCmd) ScopedPlugins() []plugins2.Plugin {
+	if cmd.scopedPlugins != nil {
+		return cmd.scopedPlugins
+	}
+
 	var plugs []plugins2.Plugin
-	if cmd.pluginsFn == nil {
+	if cmd.Feeder == nil {
 		return plugs
 	}
 
-	plugs = append(plugs, cmd.Plugins...)
-	for _, p := range cmd.pluginsFn() {
-		if _, ok := p.(sdk.Sdker); ok {
-			plugs = append(plugs, p)
+	// plugs = append(plugs, cmd.Plugins...)
+	for _, p := range cmd.Feeder() {
+		fmt.Printf("Plugin '%s' type=%T;", p.PluginName(), p)
+		switch t := p.(type) {
+		case *GoDownloadCmd, *GoLinkerCmd, *GoListerCmd, *GoUseCmd, *GoInstallCmd:
+			plugs = append(plugs, t)
 		}
 	}
 	return plugs
+}
+
+func (cmd *GoSDKCmd) initializePlugins() {
+	var plugs []plugins2.Plugin
+
+	for _, plugin := range cmd.Plugins {
+		fmt.Printf("plugin '%s' has type %T\n", plugin.PluginName(), plugin)
+
+		if p, ok := plugin.(FileSystemNeeder); ok {
+			p.SetFsFeeder(func() vfs.VFS {
+				return cmd.Fs
+			})
+		}
+
+		if p, ok := plugin.(PatherNeeder); ok {
+			p.SetPather(func() devctlpath.Pather {
+				return cmd.Pather
+			})
+		}
+
+		plugs = append(plugs, plugin)
+	}
+
+	cmd.Plugins = plugins2.Plugins{}
+	for _, plugin := range plugs {
+		if p, ok := plugin.(plugins2.Needer); ok {
+			p.WithPlugins(func() []plugins2.Plugin {
+				return plugs
+			})
+		}
+		cmd.Plugins = append(cmd.Plugins, plugin)
+	}
+
+	cmd.Feeder = func() []plugins2.Plugin {
+		return cmd.Plugins
+	}
+}
+
+func (cmd *GoSDKCmd) Main(ctx context.Context, _ string, args []string) error {
+
+	cmd.initializePlugins()
+
+	subcommand := FindSubcommandFromArgs(args[1:], cmd.SubCommands())
+
+	version := args[2]
+	switch cmd := subcommand.(type) {
+	case *GoUseCmd:
+		return cmd.Use(ctx, version)
+	case *GoDownloadCmd:
+		return cmd.Download(ctx, version)
+	case *GoInstallCmd:
+		return cmd.Install(version)
+	case *GoLinkerCmd:
+		return cmd.Link(ctx, version)
+	case *GoListerCmd:
+		// TODO: multiplex console output, so that return values are not necessary
+		versions, err := cmd.ListInstalled(version)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%v\n", versions)
+		return err
+	default:
+		return fmt.Errorf("plugin '%s'  of type %T is currently not supported\n", cmd.PluginName(), cmd)
+	}
+	return fmt.Errorf("plugin %s has a unsupported api\n", cmd.PluginName())
 }

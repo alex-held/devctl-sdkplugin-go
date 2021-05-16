@@ -8,18 +8,18 @@ import (
 	"path"
 
 	"github.com/alex-held/devctl-plugins/pkg/sysutils"
+	devctlpath2 "github.com/alex-held/devctl/pkg/devctlpath"
 	"github.com/gobuffalo/plugins"
 	"github.com/gobuffalo/plugins/plugcmd"
-	"github.com/mandelsoft/vfs/pkg/osfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/pkg/errors"
 
-	"github.com/alex-held/devctl/pkg/devctlpath"
 	plugins2 "github.com/alex-held/devctl/pkg/plugins"
 	downloader2 "github.com/alex-held/devctl/pkg/plugins/downloader"
 	"github.com/alex-held/devctl/pkg/ui/taskrunner"
 )
 
+var _ plugins.Plugin = &GoDownloadCmd{}
 var _ plugcmd.Namer = &GoDownloadCmd{}
 var _ plugins.Plugin = &GoDownloadCmd{}
 var _ plugins2.Executor = &GoDownloadCmd{}
@@ -27,7 +27,7 @@ var _ plugins2.Executor = &GoDownloadCmd{}
 type GoDownloadCmd struct {
 	Fs      vfs.VFS
 	BaseUri string
-	Pather  devctlpath.Pather
+	Pather  devctlpath2.Pather
 	Runtime *sysutils.DefaultRuntimeInfoGetter
 }
 
@@ -70,20 +70,16 @@ func (cmd *GoDownloadCmd) PluginName() string {
 	return GoDownloadCmdName
 }
 
+func (cmd *GoDownloadCmd) SetPather(feeder PatherFeeder) {
+	cmd.Pather = feeder()
+}
+
+func (cmd *GoDownloadCmd) SetFsFeeder(feeder FileSystemFeeder) {
+	cmd.Fs = feeder()
+}
+
 func (cmd *GoDownloadCmd) ExecuteCommand(ctx context.Context, _ string, args []string) error {
-	cmd.Init()
 	version := args[1]
 	task := cmd.AsTasker(version)
 	return task.Task(ctx)
-}
-
-func (cmd *GoDownloadCmd) Init() {
-	cmd.Fs = vfs.New(osfs.New())
-
-	// TODO: just checking if I can skip init, using better types
-	//	cmd.Runtime = system.OSRuntimeInfoGetter{}
-	cmd.Pather = devctlpath.DefaultPather()
-	if cmd.BaseUri == "" {
-		cmd.BaseUri = "https://golang.org"
-	}
 }

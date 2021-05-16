@@ -9,7 +9,7 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/afero"
 
-	"github.com/alex-held/devctl/pkg/devctlpath"
+	"github.com/alex-held/devctl-plugins/pkg/devctlpath"
 )
 
 var _ plugcmd.Namer = &GoListerCmd{}
@@ -21,13 +21,12 @@ type GoListerCmd struct {
 	Pather devctlpath.Pather
 }
 
-func (cmd *GoListerCmd) Init() {
-	if cmd.Pather == nil {
-		cmd.Pather = devctlpath.DefaultPather()
-	}
-	if cmd.fs == nil {
-		cmd.fs = afero.NewOsFs()
-	}
+func (cmd *GoListerCmd) SetPather(feeder PatherFeeder) {
+	cmd.Pather = feeder()
+}
+
+func (cmd *GoListerCmd) SetFsFeeder(feeder FileSystemFeeder) {
+	cmd.Fs = feeder()
 }
 
 func (cmd *GoListerCmd) CmdName() string {
@@ -39,7 +38,6 @@ func (cmd *GoListerCmd) PluginName() string {
 }
 
 func (cmd *GoListerCmd) ExecuteCommand(_ context.Context, _ string, _ []string) error {
-	cmd.Init()
 	fis, err := afero.ReadDir(cmd.fs, cmd.Pather.SDK("go"))
 	if err != nil {
 		return err

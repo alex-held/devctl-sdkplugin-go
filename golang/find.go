@@ -14,14 +14,16 @@ func FindSubcommandFromArgs(args []string, plugs []plugins.Plugin) plugins.Plugi
 		if strings.HasPrefix(a, "-") {
 			continue
 		}
+
 		return FindSubcommand(a, plugs)
 	}
+
 	return nil
 }
 
 func FindSubcommand(name string, plugs []plugins.Plugin) plugins.Plugin {
 	for _, p := range plugs {
-		c, ok := p.(devctlPlug.SDKPlugin)
+		c, ok := p.(devctlPlug.Plugin)
 		if !ok {
 			continue
 		}
