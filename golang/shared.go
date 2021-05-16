@@ -6,7 +6,7 @@ import (
 	"github.com/alex-held/devctl-plugins/pkg/devctlog"
 	devctlpath2 "github.com/alex-held/devctl-plugins/pkg/devctlpath"
 	"github.com/alex-held/devctl-plugins/pkg/sysutils"
-	"github.com/alex-held/devctl/pkg/plugins"
+	"github.com/gobuffalo/plugins"
 	"github.com/hashicorp/go-hclog"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 )

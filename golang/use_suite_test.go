@@ -24,7 +24,7 @@ import (
 
 func TestGoSDKPluginSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "go-plugin USE")
+	RunSpecs(t, "go-plugin")
 }
 
 const (

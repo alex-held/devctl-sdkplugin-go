@@ -3,25 +3,21 @@ package golang
 import (
 	"archive/tar"
 	"compress/gzip"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/alex-held/devctl-plugins/pkg/devctlog"
-	devctlpath2 "github.com/alex-held/devctl/pkg/devctlpath"
-	"github.com/mandelsoft/vfs/pkg/vfs"
-	"github.com/pkg/errors"
-
+	"github.com/alex-held/devctl-plugins/pkg/devctlpath"
 	"github.com/alex-held/devctl-plugins/pkg/sysutils"
-	"github.com/alex-held/devctl/pkg/ui/taskrunner"
+	"github.com/mandelsoft/vfs/pkg/vfs"
 )
 
 type Renamer func(p string) string
 
 type GoInstallCmd struct {
-	Pather  devctlpath2.Pather
+	Pather  devctlpath.Pather
 	Runtime *sysutils.DefaultRuntimeInfoGetter
 	Fs      vfs.VFS
 	Logger  devctlog.Logger
@@ -39,50 +35,12 @@ func (cmd *GoInstallCmd) SetFsFeeder(feeder FileSystemFeeder) {
 	cmd.Fs = feeder()
 }
 
-func (cmd *GoInstallCmd) AsTasker(version string) taskrunner.Tasker {
-
-	archiveName := FormatGoArchiveArtifactName(cmd.Runtime.Get(), version)
-	archivePath := cmd.Pather.Download("go", version, archiveName)
-	installPath := cmd.Pather.SDK("go", version)
-
-	return &taskrunner.ConditionalTask{
-		Description: "installing go sdk %s into the go sdk directory",
-		Action: func(ctx context.Context) error {
-			archive, err := cmd.Fs.OpenFile(archivePath, os.O_RDWR, os.ModePerm)
-
-			if err != nil {
-				return errors.Wrapf(err, "failed to open go sdk archive=%s\n", archivePath)
-			}
-			err = cmd.Fs.MkdirAll(installPath, os.ModePerm)
-			if err != nil {
-				return errors.Wrapf(err, "failed to Extract go sdk %s; dest=%s; archive=%s\n", version, installPath, archivePath)
-			}
-			err = UnTarGzip(archive, installPath, GoSDKUnarchiveRenamer(), cmd.Fs)
-			if err != nil {
-				return errors.Wrapf(err, "failed to Extract go sdk %s; dest=%s; archive=%s\n", version, installPath, archivePath)
-			}
-			return nil
-		},
-		ShouldExecute: func() bool {
-			// dont run installer if the version is already installed
-			exists, _ := cmd.Fs.Exists(installPath)
-			return !exists
-		},
-	}
-}
-
 func (cmd *GoInstallCmd) PluginName() string {
 	return GoInstallCmdName
 }
 
 func (cmd *GoInstallCmd) CmdName() string {
 	return "install"
-}
-
-func (cmd *GoInstallCmd) ExecuteCommand(ctx context.Context, root string, args []string) (err error) {
-	version := args[1]
-	task := cmd.AsTasker(version)
-	return task.Task(ctx)
 }
 
 func UnTarGzip(file io.Reader, target string, renamer Renamer, v vfs.VFS) error {

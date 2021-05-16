@@ -1,9 +1,6 @@
 package golang
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/alex-held/devctl-plugins/pkg/devctlog"
 	"github.com/gobuffalo/plugins"
 	"github.com/gobuffalo/plugins/plugcmd"
@@ -41,17 +38,4 @@ func (cmd *GoListerCmd) CmdName() string {
 
 func (cmd *GoListerCmd) PluginName() string {
 	return "sdk/go/list"
-}
-
-func (cmd *GoListerCmd) ExecuteCommand(_ context.Context, _ string, _ []string) error {
-	fis, err := afero.ReadDir(cmd.fs, cmd.Pather.SDK("go"))
-	if err != nil {
-		return err
-	}
-	for _, fi := range fis {
-		if fi.Name() != "current" {
-			fmt.Println(fi.Name())
-		}
-	}
-	return nil
 }

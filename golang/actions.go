@@ -24,7 +24,7 @@ func (cmd *GoDownloadCmd) Download(ctx context.Context, version string) error {
 		"artifactName", artifactName)
 
 	if err := cmd.Fs.MkdirAll(dlDirectory, os.ModePerm); err != nil {
-		return errors.Wrapf(err, "failed creating go sdk download Pather; version=%s", version)
+		return errors.Wrapf(err, "failed creating go sdk download PatherFeeder; version=%s", version)
 	}
 
 	if exists, _ := cmd.Fs.Exists(archivePath); exists {

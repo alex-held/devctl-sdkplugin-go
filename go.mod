@@ -15,8 +15,11 @@ require (
 	github.com/onsi/gomega v1.12.0
 	github.com/pkg/errors v0.9.1
 	github.com/pterm/pterm v0.12.17 // indirect
+	github.com/rogpeppe/go-internal v1.8.0
 	github.com/schollz/progressbar/v3 v3.8.1 // indirect
 	github.com/spf13/afero v1.6.0
+	github.com/spf13/pflag v1.0.5
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a // indirect
+	golang.org/x/net v0.0.0-20210510120150-4163338589ed // indirect
 	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015 // indirect
 )

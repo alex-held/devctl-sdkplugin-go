@@ -4,43 +4,37 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/alex-held/devctl-plugins/pkg/devctlog"
 	"github.com/alex-held/devctl-plugins/pkg/devctlpath"
 	"github.com/alex-held/devctl-plugins/pkg/sysutils"
-	. "github.com/gobuffalo/plugins"
+	"github.com/gobuffalo/plugins"
 	"github.com/gobuffalo/plugins/plugcmd"
 	"github.com/gobuffalo/plugins/plugprint"
+	"github.com/hashicorp/go-hclog"
 	"github.com/mandelsoft/vfs/pkg/vfs"
+	"github.com/rogpeppe/go-internal/semver"
 )
 
 var _ plugcmd.SubCommander = &GoSDKCmd{}
 var _ plugcmd.Commander = &GoSDKCmd{}
-var _ Plugin = &GoSDKCmd{}
-var _ Scoper = &GoSDKCmd{}
+var _ plugins.Plugin = &GoSDKCmd{}
+var _ plugins.Scoper = &GoSDKCmd{}
+var _ plugprint.Describer = &GoSDKCmd{}
 var _ plugprint.Describer = &GoSDKCmd{}
 
 type GoSDKCmd struct {
+	Config            *PluginConfig
 	Logger            devctlog.Logger
-	Plugins           Plugins
-	Feeder            Feeder
 	Pather            devctlpath.Pather
 	RuntimeInfoGetter *sysutils.DefaultRuntimeInfoGetter
 	Fs                vfs.VFS
-	scopedPlugins     Plugins
+	scopedPlugins     plugins.Plugins
 }
 
-func (cmd *GoSDKCmd) WithPlugins(feeder Feeder) {
-	cmd.Feeder = feeder
-	cmd.Plugins = feeder()
-}
-
-func (cmd *GoSDKCmd) Link(version string) error {
-	panic("")
-}
-
-func (cmd *GoSDKCmd) ExecuteCommand(ctx context.Context, root string, args []string) error {
-	return cmd.Main(ctx, root, args)
+func (cmd *GoSDKCmd) WithPlugins(feeder plugins.Feeder) {
+	cmd.Config.Plugins = feeder()
 }
 
 func (cmd *GoSDKCmd) CmdName() string {
@@ -55,22 +49,20 @@ func (cmd *GoSDKCmd) Description() string {
 	return "manages the installations of the go sdk"
 }
 
-func (cmd *GoSDKCmd) SubCommands() (subcommands []Plugin) {
+func (cmd *GoSDKCmd) SubCommands() (subcommands []plugins.Plugin) {
 	return cmd.ScopedPlugins()
 }
 
-func (cmd *GoSDKCmd) ScopedPlugins() []Plugin {
-	var plugs []Plugin
-
+func (cmd *GoSDKCmd) ScopedPlugins() []plugins.Plugin {
+	var plugs []plugins.Plugin
 	if cmd.scopedPlugins != nil {
 		return cmd.scopedPlugins
 	}
-	if cmd.Feeder == nil {
+	if cmd.Config.PluginFeeder() == nil {
 		return plugs
 	}
 
-	for _, p := range cmd.Feeder() {
-		fmt.Printf("Plugin '%s' type=%T;", p.PluginName(), p)
+	for _, p := range cmd.Config.Plugins {
 		switch t := p.(type) {
 		case *GoDownloadCmd, *GoLinkerCmd, *GoListerCmd, *GoUseCmd, *GoInstallCmd:
 			cmd.Logger.Trace("adding scoped plugin",
@@ -85,54 +77,106 @@ func (cmd *GoSDKCmd) ScopedPlugins() []Plugin {
 	return plugs
 }
 
+type PluginConfig struct {
+	LogLevel hclog.Level
+	Vfs      vfs.VFS
+	Pather   devctlpath.Pather
+	Plugins  plugins.Plugins
+}
+
+func (p *PluginConfig) PluginFeeder() plugins.Feeder {
+	return func() []plugins.Plugin {
+		return p.Plugins
+	}
+}
+
+func (p *PluginConfig) LoggerFeeder(name string) LoggerFeeder {
+	return func() devctlog.Logger {
+		l := NewLogger(name)
+		l.SetLevel(p.LogLevel)
+		return l
+	}
+}
+
+func (p *PluginConfig) FsFeeder() FileSystemFeeder {
+	return func() vfs.VFS {
+		return p.Vfs
+	}
+}
+
+func (p *PluginConfig) PatherFeeder() PatherFeeder {
+	return func() devctlpath.Pather {
+		return p.Pather
+	}
+}
+
+type FeederGetter interface {
+	LoggerFeeder(name string) LoggerFeeder
+	FsFeeder() FileSystemFeeder
+	PatherFeeder() PatherFeeder
+	PluginFeeder() plugins.Feeder
+}
+
 func (cmd *GoSDKCmd) initializePlugins() {
-	var plugs []Plugin
-	for _, plugin := range cmd.Plugins {
+	for _, plugin := range cmd.Config.Plugins {
 		cmd.Logger.Trace("providing dependency feeders for dependency needers",
 			"plugin name", plugin.PluginName(),
 			"type", fmt.Sprintf("%T", plugin))
 
 		if p, ok := plugin.(LoggerNeeder); ok {
-			p.SetLogger(func() devctlog.Logger {
-				return NewLogger(plugin.PluginName())
-			})
+			p.SetLogger(cmd.Config.LoggerFeeder(plugin.PluginName()))
 		}
 		if p, ok := plugin.(FileSystemNeeder); ok {
-			p.SetFsFeeder(func() vfs.VFS {
-				return cmd.Fs
-			})
+			p.SetFsFeeder(cmd.Config.FsFeeder())
 		}
 		if p, ok := plugin.(PatherNeeder); ok {
-			p.SetPather(func() devctlpath.Pather {
-				return cmd.Pather
-			})
+			p.SetPather(cmd.Config.PatherFeeder())
 		}
-		plugs = append(plugs, plugin)
+
+		cmd.Config.Plugins = append(cmd.Config.Plugins, plugin)
 	}
 
-	cmd.Plugins = Plugins{}
-	for _, plugin := range plugs {
-		if p, ok := plugin.(Needer); ok {
+	var plugs plugins.Plugins
+	for _, plugin := range cmd.Config.Plugins {
+		if p, ok := plugin.(plugins.Needer); ok {
 			cmd.Logger.Trace("providing plugin feeder for plugin needer",
 				"plugin name", plugin.PluginName(), "type", fmt.Sprintf("%T", p),
 				"is needer", ok)
 
-			p.WithPlugins(func() []Plugin {
+			p.WithPlugins(func() []plugins.Plugin {
 				return plugs
 			})
 		}
-		cmd.Plugins = append(cmd.Plugins, plugin)
+		plugs = append(plugs, plugin)
 	}
-	cmd.Feeder = func() []Plugin {
-		return cmd.Plugins
+	cmd.Config.Plugins = plugs
+}
+
+func versionFromArgs(args []string) (version string, containsVersion bool) {
+	for _, arg := range args {
+		semVer := "v" + strings.TrimPrefix(arg, "v")
+		if semver.IsValid(semVer) {
+			return arg, true
+		}
 	}
+
+	return "", false
 }
 
 func (cmd *GoSDKCmd) Main(ctx context.Context, _ string, args []string) error {
 	cmd.initializePlugins()
+
+	var version string
 	logger := cmd.Logger
 	subcommand := FindSubcommandFromArgs(args[1:], cmd.SubCommands())
-	version := args[2]
+
+	if subcommand != nil {
+		var containsVersion bool
+		if version, containsVersion = versionFromArgs(args); !containsVersion {
+			logger.Error("no go sdk version provided in args", "args", args)
+			os.Exit(1)
+		}
+	}
 
 	switch cmd := subcommand.(type) {
 	case *GoUseCmd:
@@ -151,6 +195,8 @@ func (cmd *GoSDKCmd) Main(ctx context.Context, _ string, args []string) error {
 		}
 		_, err = fmt.Fprintf(os.Stdout, "%v\n", versions)
 		return err
+	case nil:
+		return nil
 	default:
 		logger.Error("plugin is currently not supported", "name", cmd.PluginName(), "type", fmt.Sprintf("%T", cmd))
 		return fmt.Errorf("plugin '%s'  of type %T is currently not supported\n", cmd.PluginName(), cmd)
