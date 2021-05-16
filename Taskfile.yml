@@ -1,0 +1,63 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GO_SDK_ROOT_DIR: "{{.DEVCTL_ROOT}}/sdks/go"
+  CURRENT_GO_VERSION: 1.16.4
+  FALLBACK_GO_VERSION: 1.16.3
+  PLUGIN_VERSION: v1.0.0
+
+tasks:
+
+  default:
+    cmds:
+      - task: version
+      - task: build
+    silent: true
+
+  version:
+    desc: displays the devctl-sdkplugin-go version
+    cmds:
+      - echo "{{.PLUGIN_VERSION}}"
+
+  test:ginkgo:
+    desc: runs all ginkgo suites
+    cmds:
+      - ginkgo run ./...
+
+  test:ginkgo:watch:
+    desc: watches all ginkgo suites
+    cmds:
+      - ginkgo watch ./...
+
+  test:integration:clean:
+    desc: prepares devctl environment to run integration tests and remove old test artifacts
+    cmds:
+      - rm -rdf "{{.GO_SDK_ROOT_DIR}}/{{.CURRENT_GO_VERSION}}" && ln -Fsv  "{{.GO_SDK_ROOT_DIR}}/{{.FALLBACK_GO_VERSION}}" "{{.GO_SDK_ROOT_DIR}}"/current
+
+  test:integration:use:
+    desc: tests the use command
+    deps:
+      - test:integration:clean
+    cmds:
+      - go run ./main.go use "{{.CURRENT_GO_VERSION}}"
+
+  test:integration:help:
+    desc: tests the help flag
+    deps:
+      - test:integration:clean
+    cmds:
+      - go run ./main.go --help
+
+  build:
+    desc: builds the devctl-sdkplugin-go
+    cmds:
+      - go build -o ./bin ./main.go
+
+  build:install:
+    desc: installs the devctl-sdkplugin-go
+    deps:
+      - build
+    cmds:
+      - go install github.com/alex-held/devctl-sdkplugin-go
