@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/alex-held/devctl-plugins/pkg/devctlog"
 	"github.com/gobuffalo/plugins"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/pkg/errors"
@@ -18,6 +19,11 @@ type GoUseCmd struct {
 	Plugins plugins.Plugins
 	Pather  devctlpath.Pather
 	Fs      vfs.VFS
+	Logger  devctlog.Logger
+}
+
+func (cmd *GoUseCmd) SetLogger(feeder LoggerFeeder) {
+	cmd.Logger = feeder()
 }
 
 func (cmd *GoUseCmd) SetFsFeeder(feeder FileSystemFeeder) {
@@ -29,13 +35,11 @@ func (cmd *GoUseCmd) SetPather(feeder PatherFeeder) {
 }
 
 func (cmd *GoUseCmd) Use(ctx context.Context, version string) error {
-
 	var downloadCmd *GoDownloadCmd
 	var installCmd *GoInstallCmd
 	var linkerCmd *GoLinkerCmd
 
 	for _, plugin := range cmd.Plugins {
-
 		if p, ok := plugin.(*GoDownloadCmd); ok {
 			downloadCmd = p
 		}
@@ -45,27 +49,20 @@ func (cmd *GoUseCmd) Use(ctx context.Context, version string) error {
 		if p, ok := plugin.(*GoLinkerCmd); ok {
 			linkerCmd = p
 		}
-
-		fmt.Printf("unsupported plugin '%s' with type %T\n", plugin.PluginName(), plugin)
+		cmd.Logger.Trace("GoUserCmd does not support plugin", "name", plugin.PluginName(), "type", fmt.Sprintf("%T", plugin))
 	}
-
 	err := downloadCmd.Download(ctx, version)
 	if err != nil {
 		return errors.Wrapf(err, "failed downloading go sdk %s\n", version)
 	}
-
-	// TODO: use context here
-	// err = installCmd.Install(ctx, version)
 	err = installCmd.Install(version)
 	if err != nil {
 		return errors.Wrapf(err, "failed installing go sdk %s\n", version)
 	}
-
 	err = linkerCmd.Link(ctx, version)
 	if err != nil {
 		return errors.Wrapf(err, "failed installing go sdk %s\n", version)
 	}
-
 	return nil
 }
 

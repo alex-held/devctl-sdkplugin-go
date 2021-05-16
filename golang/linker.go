@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/alex-held/devctl-plugins/pkg/devctlog"
 	"github.com/gobuffalo/plugins"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/pkg/errors"
@@ -19,6 +20,12 @@ type GoLinkerCmd struct {
 	plugins plugins.Plugins
 	Pather  devctlpath.Pather
 	fs      vfs.VFS
+	Logger  devctlog.Logger
+}
+
+
+func (cmd *GoLinkerCmd) SetLogger(feeder LoggerFeeder) {
+	cmd.Logger = feeder()
 }
 
 func (cmd *GoLinkerCmd) SetPather(feeder PatherFeeder) {
@@ -141,21 +148,4 @@ func (cmd *GoLinkerCmd) ExecuteCommand(ctx context.Context, root string, args []
 	}
 
 	return nil
-}
-
-func (cmd *GoLinkerCmd) Link(ctx context.Context, version string) (err error) {
-	sdkPath := cmd.Pather.SDK("go", version)
-	current := cmd.Pather.SDK("go", "current")
-
-	err = cmd.fs.RemoveAll(current)
-	if err != nil {
-		return errors.Wrapf(err, "failed to remove current symlink")
-	}
-
-	if e, err := cmd.fs.DirExists(sdkPath); !e || err != nil {
-		return err
-	}
-
-	err = cmd.fs.Symlink(sdkPath, current)
-	return err
 }

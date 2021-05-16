@@ -14,10 +14,8 @@ func FindSubcommandFromArgs(args []string, plugs []plugins.Plugin) plugins.Plugi
 		if strings.HasPrefix(a, "-") {
 			continue
 		}
-
 		return FindSubcommand(a, plugs)
 	}
-
 	return nil
 }
 

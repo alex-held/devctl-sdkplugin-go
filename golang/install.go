@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alex-held/devctl-plugins/pkg/devctlog"
 	devctlpath2 "github.com/alex-held/devctl/pkg/devctlpath"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/pkg/errors"
@@ -23,6 +24,11 @@ type GoInstallCmd struct {
 	Pather  devctlpath2.Pather
 	Runtime *sysutils.DefaultRuntimeInfoGetter
 	Fs      vfs.VFS
+	Logger  devctlog.Logger
+}
+
+func (cmd *GoInstallCmd) SetLogger(feeder LoggerFeeder) {
+	cmd.Logger = feeder()
 }
 
 func (cmd *GoInstallCmd) SetPather(feeder PatherFeeder) {
@@ -83,9 +89,9 @@ func UnTarGzip(file io.Reader, target string, renamer Renamer, v vfs.VFS) error 
 	gr, _ := gzip.NewReader(file)
 	tr := tar.NewReader(gr)
 
-
 	for {
 		header, err := tr.Next()
+
 		if err == io.EOF {
 			break
 		} else if err != nil {

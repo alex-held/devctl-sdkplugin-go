@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	devctlpath2 "github.com/alex-held/devctl-plugins/pkg/devctlpath"
@@ -28,6 +27,7 @@ func Plugins() []plugins.Plugin {
 
 	return []plugins.Plugin{
 		&GoSDKCmd{
+			Logger:  NewLogger("sdk/go"),
 			Plugins: feeder(),
 			Feeder:  feeder,
 			Pather:  devctlpath2.NewPather(),
@@ -39,9 +39,9 @@ func Plugins() []plugins.Plugin {
 func main() {
 	cmd := Plugins()[0].(*GoSDKCmd)
 	args := os.Args
-	err := cmd.Main(context.Background(), "", args)
+	cmd.Logger.Debug("starting GoSDKCmd.Main plugin execution", "args", args)
 	
-	if err != nil {
-		fmt.Printf("Error executing go sdk plugin. Args=%v\n%v\n", args, err)
+	if err := cmd.Main(context.Background(), "-", args); err != nil {
+		cmd.Logger.Error("failed during plugin execution", "args", args, "err", err)
 	}
 }

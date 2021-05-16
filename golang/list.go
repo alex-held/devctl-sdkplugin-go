@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/alex-held/devctl-plugins/pkg/devctlog"
 	"github.com/gobuffalo/plugins"
 	"github.com/gobuffalo/plugins/plugcmd"
 	"github.com/mandelsoft/vfs/pkg/vfs"
@@ -19,6 +20,11 @@ type GoListerCmd struct {
 	fs     afero.Fs
 	Fs     vfs.VFS
 	Pather devctlpath.Pather
+	Logger devctlog.Logger
+}
+
+func (cmd *GoListerCmd) SetLogger(feeder LoggerFeeder) {
+	cmd.Logger = feeder()
 }
 
 func (cmd *GoListerCmd) SetPather(feeder PatherFeeder) {
